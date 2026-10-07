@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<!--
+  UR5e for Isaac Sim (Stage 2).
+
+  Same robot model as the official driver (ur_description's ur_macro), so MoveIt, TF and the pose
+  commander see exactly the same UR5e as in Stage 1. Only the ros2_control hardware changes: instead of
+  mock_components, topic_based_ros2_control forwards the controller's position commands to Isaac Sim on
+  /isaac_joint_commands and reads the simulated joints back from /isaac_joint_states.
+
+  With use_gripper (default) a Robotiq 2F-85 is mounted on tool0, as in Stage 1 (urdf/ur5e_robotiq.urdf.xacro).
+  Only its driven joint, robotiq_85_left_knuckle_joint, goes through ros2_control (Isaac Sim's finger_joint;
+  the scene script translates the name). The other finger joints are <mimic> joints, which
+  robot_state_publisher and MoveIt compute from it.
+-->
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="ur">
+  <xacro:arg name="name" default="ur"/>
+  <xacro:arg name="ur_type" default="ur5e"/>
+  <xacro:arg name="tf_prefix" default=""/>
+  <xacro:arg name="joint_commands_topic" default="/isaac_joint_commands"/>
+  <xacro:arg name="joint_states_topic" default="/isaac_joint_states"/>
+  <xacro:arg name="use_gripper" default="true"/>
+
+  <!-- Start pose, the same as in Stage 1 and in isaac/ur5e_isaac_scene.py. -->
+  <xacro:arg name="initial_positions_file" default="$(find ur_description)/config/initial_positions.yaml"/>
+  <xacro:property name="initial_positions" value="${xacro.load_yaml('$(arg initial_positions_file)')}"/>
+
+  <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
+
+  <link name="world"/>
+
+  <xacro:ur_robot
+    name="$(arg name)"
+    tf_prefix="$(arg tf_prefix)"
+    parent="world"
+    joint_limits_parameters_file="$(find ur_description)/config/$(arg ur_type)/joint_limits.yaml"
+    kinematics_parameters_file="$(find ur_description)/config/$(arg ur_type)/default_kinematics.yaml"
+    physical_parameters_file="$(find ur_description)/config/$(arg ur_type)/physical_parameters.yaml"
+    visual_parameters_file="$(find ur_description)/config/$(arg ur_type)/visual_parameters.yaml">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:ur_robot>
+
+  <xacro:if value="$(arg use_gripper)">
+    <xacro:include filename="$(find robotiq_description)/urdf/ur_to_robotiq_adapter.urdf.xacro"/>
+    <xacro:include filename="$(find robotiq_description)/urdf/robotiq_2f_85_macro.urdf.xacro"/>
+    <xacro:ur_to_robotiq prefix="$(arg tf_prefix)" parent="$(arg tf_prefix)tool0" child="$(arg tf_prefix)gripper_mount_link"/>
+    <!-- include_ros2_control false: the gripper joint is added to the Isaac ros2_control block below -->
+    <xacro:robotiq_gripper name="RobotiqGripper" prefix="$(arg tf_prefix)"
+                           parent="$(arg tf_prefix)gripper_mount_link" include_ros2_control="false">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:robotiq_gripper>
+  </xacro:if>
+
+  <!-- initial_value also initialises the position command. Without it the command starts at 0 and
+       topic_based_ros2_control drives the simulated arm to all-zero joints as soon as it starts. -->
+  <xacro:macro name="isaac_joint" params="name">
+    <joint name="$(arg tf_prefix)${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">${initial_positions.get(name, 0.0)}</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="$(arg name)" type="system">
+    <hardware>
+      <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+      <param name="joint_commands_topic">$(arg joint_commands_topic)</param>
+      <param name="joint_states_topic">$(arg joint_states_topic)</param>
+      <!-- The UR5e joints have limits (+-360 deg), so PhysX reports their true angle and no unwrapping is
+           needed. Summing "wrapped" angles would go wrong whenever ROS starts more than 180 deg away from
+           the simulated arm, leaving a 2*pi offset between ROS and Isaac. -->
+      <param name="sum_wrapped_joint_states">false</param>
+    </hardware>
+    <xacro:isaac_joint name="shoulder_pan_joint"/>
+    <xacro:isaac_joint name="shoulder_lift_joint"/>
+    <xacro:isaac_joint name="elbow_joint"/>
+    <xacro:isaac_joint name="wrist_1_joint"/>
+    <xacro:isaac_joint name="wrist_2_joint"/>
+    <xacro:isaac_joint name="wrist_3_joint"/>
+    <xacro:if value="$(arg use_gripper)">
+      <!-- 0.0 = open, as the gripper starts in Isaac Sim -->
+      <xacro:isaac_joint name="robotiq_85_left_knuckle_joint"/>
+    </xacro:if>
+  </ros2_control>
+</robot>

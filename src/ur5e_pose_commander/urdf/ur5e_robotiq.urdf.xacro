@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- UR arm (stock ur_robot_driver description) + Robotiq 2F-85 gripper mounted on tool0.
+     Takes every argument of ur_robot_driver/urdf/ur.urdf.xacro, so it can be passed to
+     ur_control.launch.py as description_file. -->
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg name)">
+  <xacro:arg name="name" default="ur"/>
+
+  <!-- arm, world link and the arm's ros2_control block -->
+  <xacro:include filename="$(find ur_robot_driver)/urdf/ur.urdf.xacro"/>
+
+  <xacro:include filename="$(find robotiq_description)/urdf/ur_to_robotiq_adapter.urdf.xacro"/>
+  <xacro:include filename="$(find robotiq_description)/urdf/robotiq_2f_85_macro.urdf.xacro"/>
+
+  <xacro:ur_to_robotiq prefix="$(arg tf_prefix)" parent="$(arg tf_prefix)tool0" child="$(arg tf_prefix)gripper_mount_link"/>
+
+  <!-- Mock hardware follows use_mock_hardware; on a real robot the gripper is reached through
+       the UR tool connector (start the driver with use_tool_communication:=true). -->
+  <xacro:robotiq_gripper
+    name="RobotiqGripperHardwareInterface"
+    prefix="$(arg tf_prefix)"
+    parent="$(arg tf_prefix)gripper_mount_link"
+    use_fake_hardware="$(arg use_mock_hardware)"
+    mock_sensor_commands="$(arg mock_sensor_commands)"
+    com_port="$(arg tool_device_name)">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:robotiq_gripper>
+</robot>

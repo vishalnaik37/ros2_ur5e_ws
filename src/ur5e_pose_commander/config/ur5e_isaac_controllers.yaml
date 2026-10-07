@@ -1,0 +1,54 @@
+# ros2_control controllers for the UR5e in Isaac Sim (Stage 2).
+# Isaac Sim has no UR speed-scaling interface, so the plain JointTrajectoryController is used instead
+# of the driver's scaled_joint_trajectory_controller.
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    joint_trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    # Robotiq 2F-85, only spawned with use_gripper:=true
+    robotiq_gripper_controller:
+      type: parallel_gripper_action_controller/GripperActionController
+
+joint_trajectory_controller:
+  ros__parameters:
+    joints:
+      - shoulder_pan_joint
+      - shoulder_lift_joint
+      - elbow_joint
+      - wrist_1_joint
+      - wrist_2_joint
+      - wrist_3_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    # A simulated arm lags its trajectory slightly. Allow 2 s after the trajectory ends for it to settle
+    # within 0.01 rad of the goal (~5 mm at the tool), instead of the driver's 0.1 rad.
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 2.0
+      shoulder_pan_joint: { trajectory: 0.2, goal: 0.01 }
+      shoulder_lift_joint: { trajectory: 0.2, goal: 0.01 }
+      elbow_joint: { trajectory: 0.2, goal: 0.01 }
+      wrist_1_joint: { trajectory: 0.2, goal: 0.01 }
+      wrist_2_joint: { trajectory: 0.2, goal: 0.01 }
+      wrist_3_joint: { trajectory: 0.2, goal: 0.01 }
+
+robotiq_gripper_controller:
+  ros__parameters:
+    joint: robotiq_85_left_knuckle_joint  # finger_joint in Isaac Sim; 0.0 = open, ~0.79 = closed
+    state_interfaces: ["position", "velocity"]
+    # The simulated fingers stop on an object (or on Isaac's joint limit, 0.785) before the goal.
+    goal_tolerance: 0.02
+    allow_stalling: true
+    stall_timeout: 0.5

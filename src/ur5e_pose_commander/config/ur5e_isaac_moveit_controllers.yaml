@@ -1,0 +1,36 @@
+# MoveIt -> ros2_control controller mapping for Isaac Sim (Stage 2).
+# Same as ur_moveit_config's moveit_controllers.yaml, but with the plain joint_trajectory_controller
+# instead of the scaled one.
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+
+trajectory_execution:
+  allowed_execution_duration_scaling: 1.2
+  allowed_goal_duration_margin: 0.5
+  allowed_start_tolerance: 0.01
+  execution_duration_monitoring: false
+
+moveit_simple_controller_manager:
+  controller_names:
+    - joint_trajectory_controller
+    - robotiq_gripper_controller
+
+  joint_trajectory_controller:
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - shoulder_pan_joint
+      - shoulder_lift_joint
+      - elbow_joint
+      - wrist_1_joint
+      - wrist_2_joint
+      - wrist_3_joint
+
+  # Robotiq 2F-85 (only running with use_gripper:=true)
+  robotiq_gripper_controller:
+    action_ns: gripper_cmd
+    type: ParallelGripperCommand
+    default: true
+    allow_failure: true
+    joints:
+      - robotiq_85_left_knuckle_joint

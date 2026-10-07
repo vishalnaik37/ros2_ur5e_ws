@@ -1,0 +1,10 @@
+# Robotiq 2F-85 controller, loaded next to the UR controllers by ur5e_mock.launch.py.
+# The fingers mimic robotiq_85_left_knuckle_joint: 0.0 = open, ~0.79 = closed.
+robotiq_gripper_controller:
+  ros__parameters:
+    type: parallel_gripper_action_controller/GripperActionController
+    joint: robotiq_85_left_knuckle_joint
+    state_interfaces: ["position", "velocity"]
+    goal_tolerance: 0.02
+    allow_stalling: true
+    stall_timeout: 0.05
